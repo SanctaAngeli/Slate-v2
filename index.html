@@ -1,0 +1,2019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slate — Project Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+:root {
+    --sidebar-width: 220px;
+    --drawer-width: 420px;
+    --cell-size: 120px;
+    --gap: 4px;
+    --text-dark: #1a1a1a;
+    --text-light: #4a4a4a;
+    --transition: 0.3s ease;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background: url('assets/bg-blue.png') center/cover;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ===== LOADING & AUTH ===== */
+#loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: url('assets/bg-blue.png') center/cover;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+#loading-overlay img { height: 80px; margin-bottom: 24px; }
+.spinner {
+    width: 40px; height: 40px;
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top-color: #f5c842;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#auth-container {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: url('assets/bg-blue.png') center/cover;
+    align-items: center;
+    justify-content: center;
+    z-index: 1500;
+}
+.auth-box {
+    background: url('assets/bg-beige.png') center/cover;
+    border: 4px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 40px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+}
+.auth-box img { height: 60px; margin-bottom: 8px; }
+.auth-box p { color: var(--text-light); margin-bottom: 24px; font-size: 14px; }
+.auth-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+.auth-tab {
+    flex: 1;
+    padding: 12px;
+    background: url('assets/button-beige.png') center/100% 100% no-repeat;
+    border: none;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity var(--transition);
+}
+.auth-tab.active { opacity: 1; }
+.auth-input {
+    width: 100%;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    border: 3px solid #1a1a1a;
+    border-radius: 8px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 14px;
+    background: #fff;
+}
+.auth-input:focus { outline: none; border-color: #5b8dd9; }
+.auth-submit {
+    width: 100%;
+    padding: 14px;
+    background: url('assets/button-yellow.png') center/100% 100% no-repeat;
+    border: none;
+    font-family: 'Bangers', cursive;
+    font-size: 20px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    margin-top: 8px;
+}
+.auth-submit:hover { transform: scale(1.02); }
+.auth-error, .auth-success {
+    display: none;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+}
+.auth-error { background: rgba(220,80,80,0.15); color: #a03030; }
+.auth-success { background: rgba(80,160,80,0.15); color: #306030; }
+
+/* ===== APP LAYOUT ===== */
+.app-container {
+    display: none;
+    min-height: 100vh;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+    width: var(--sidebar-width);
+    background: url('assets/bg-beige.png') center/cover;
+    border-right: 4px solid #1a1a1a;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+}
+.logo { height: 50px; margin-bottom: 24px; }
+.nav-label {
+    font-family: 'Bangers', cursive;
+    font-size: 16px;
+    letter-spacing: 1px;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+    margin-top: 16px;
+}
+.nav-item {
+    background: url('assets/button-beige.png') center/100% 100% no-repeat;
+    padding: 10px 14px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dark);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform var(--transition);
+}
+.nav-item:hover { transform: scale(1.02); }
+.nav-item.active { background: url('assets/button-yellow.png') center/100% 100% no-repeat; }
+.nav-item .count {
+    font-size: 11px;
+    opacity: 0.7;
+}
+.nav-item .dot {
+    width: 8px;
+    height: 8px;
+    background: #e67e22;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.sidebar-buttons { margin-top: auto; }
+.btn-new {
+    background: url('assets/button-yellow.png') center/100% 100% no-repeat;
+    border: none;
+    padding: 14px;
+    width: 100%;
+    font-family: 'Bangers', cursive;
+    font-size: 18px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: transform var(--transition);
+}
+.btn-new:hover { transform: scale(1.03); }
+.btn-vault {
+    background: url('assets/button-green.png') center/100% 100% no-repeat;
+    border: none;
+    padding: 12px;
+    width: 100%;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: transform var(--transition);
+}
+.btn-vault:hover { transform: scale(1.03); }
+.btn-logout {
+    background: url('assets/button-orange.png') center/100% 100% no-repeat;
+    border: none;
+    padding: 12px;
+    width: 100%;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform var(--transition);
+}
+.btn-logout:hover { transform: scale(1.03); }
+
+/* ===== MAIN CONTENT ===== */
+.main-content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    padding: 24px 32px;
+    transition: margin-right var(--transition);
+}
+.main-content.drawer-open { margin-right: var(--drawer-width); }
+
+.grid-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.title-projects { height: 60px; }
+
+.grid-container { display: flex; gap: 16px; }
+
+.stage-labels {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    padding-top: 4px;
+}
+.stage-label {
+    height: var(--cell-size);
+    display: flex;
+    align-items: center;
+}
+.stage-label img {
+    height: 45px;
+}
+
+.grid-wrapper {
+    background: url('assets/grid-bg.png') center/cover;
+    border: 4px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 8px;
+}
+.grid {
+    display: grid;
+    grid-template-columns: repeat(6, var(--cell-size));
+    grid-template-rows: repeat(5, var(--cell-size));
+    gap: var(--gap);
+}
+.cell {
+    background: transparent;
+    border-radius: 4px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+}
+.cell.drag-over {
+    background: rgba(91, 141, 217, 0.2);
+    box-shadow: inset 0 0 0 3px #5b8dd9;
+}
+.cell.invalid-drop { animation: shake 0.4s ease-out; }
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
+/* ===== CUBES ===== */
+.cube-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    position: relative;
+    transition: transform var(--transition);
+}
+.cube-wrapper:active { cursor: grabbing; }
+.cube-wrapper.dragging { opacity: 0.5; }
+.cube-wrapper:hover { transform: scale(1.08); }
+.cube-wrapper.selected { filter: drop-shadow(0 0 8px #5b8dd9); }
+
+.cube-img {
+    width: 90%;
+    height: 90%;
+    object-fit: contain;
+    position: relative;
+}
+.cube-title {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-2deg);
+    font-family: 'Bangers', cursive;
+    font-size: 12px;
+    color: #1a1a1a;
+    text-align: center;
+    max-width: 70%;
+    line-height: 1.1;
+    text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+    pointer-events: none;
+}
+
+.ready-indicator {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 12px;
+    height: 12px;
+    background: #27ae60;
+    border: 2px solid #1a1a1a;
+    border-radius: 50%;
+    opacity: 0;
+}
+.cube-wrapper[data-ready="true"] .ready-indicator { opacity: 1; }
+
+/* ===== TOOLTIP ===== */
+.tooltip {
+    position: fixed;
+    background: #1a1a1a;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    max-width: 200px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: all 0.2s ease;
+    z-index: 1000;
+}
+.tooltip.visible { opacity: 1; transform: translateY(0); }
+.tooltip-title { font-weight: 700; margin-bottom: 4px; }
+.tooltip-stage {
+    color: rgba(255,255,255,0.6);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+.tooltip-status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.tooltip-status .dot { width: 6px; height: 6px; border-radius: 50%; }
+.tooltip-status .dot.ready { background: #27ae60; }
+.tooltip-status .dot.blocked { background: #e67e22; }
+
+/* ===== DRAWER ===== */
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition);
+    z-index: 200;
+}
+.drawer-overlay.visible { opacity: 1; pointer-events: auto; }
+
+.drawer {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--drawer-width);
+    background: url('assets/bg-beige.png') center/cover;
+    border-left: 4px solid #1a1a1a;
+    transform: translateX(100%);
+    transition: transform var(--transition);
+    z-index: 250;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.drawer.open { transform: translateX(0); }
+
+.drawer-header {
+    padding: 20px;
+    border-bottom: 3px solid #1a1a1a;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.drawer-title-input {
+    font-family: 'Bangers', cursive;
+    font-size: 28px;
+    border: none;
+    background: transparent;
+    color: var(--text-dark);
+    width: 100%;
+    outline: none;
+}
+.drawer-title-input::placeholder { color: #999; }
+.drawer-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: var(--text-dark);
+    line-height: 1;
+}
+
+.drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.drawer-section {
+    margin-bottom: 20px;
+}
+.drawer-section-title {
+    font-family: 'Bangers', cursive;
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+}
+
+.drawer-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.stage-display {
+    background: url('assets/stage-tag.png') center/100% 100% no-repeat;
+    padding: 8px 20px 8px 12px;
+    font-family: 'Bangers', cursive;
+    font-size: 14px;
+    min-width: 80px;
+    text-align: center;
+}
+.stage-nav {
+    display: flex;
+    gap: 4px;
+}
+.stage-nav button {
+    background: url('assets/button-yellow.png') center/100% 100% no-repeat;
+    border: none;
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: transform var(--transition);
+}
+.stage-nav button:hover:not(:disabled) { transform: scale(1.1); }
+.stage-nav button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.drawer-input {
+    width: 100%;
+    padding: 12px;
+    border: 3px solid #1a1a1a;
+    border-radius: 8px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 13px;
+    background: #fff;
+    resize: vertical;
+}
+.drawer-input:focus { outline: none; border-color: #5b8dd9; }
+
+/* Todo tabs */
+.todo-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.todo-tab {
+    padding: 6px 10px;
+    background: url('assets/button-beige.png') center/100% 100% no-repeat;
+    border: none;
+    font-family: 'Roboto', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity var(--transition);
+}
+.todo-tab.active { opacity: 1; background: url('assets/button-yellow.png') center/100% 100% no-repeat; }
+
+.todo-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.todo-input-row input { flex: 1; }
+.todo-input-row button {
+    background: url('assets/button-beige.png') center/100% 100% no-repeat;
+    border: none;
+    padding: 8px 16px;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.todo-list { list-style: none; }
+.todo-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+.todo-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+.todo-item.done span { text-decoration: line-through; opacity: 0.5; }
+.todo-item button {
+    background: none;
+    border: none;
+    color: #c0392b;
+    cursor: pointer;
+    font-size: 16px;
+    margin-left: auto;
+}
+
+/* Customize panel */
+.customize-toggle {
+    background: url('assets/button-yellow.png') center/100% 100% no-repeat;
+    border: none;
+    padding: 12px;
+    width: 100%;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    margin-bottom: 12px;
+}
+.customize-panel {
+    display: none;
+    padding: 12px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+.customize-panel.visible { display: block; }
+
+.cube-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+}
+.cube-option {
+    aspect-ratio: 1;
+    cursor: pointer;
+    border: 3px solid transparent;
+    border-radius: 8px;
+    padding: 4px;
+    transition: all var(--transition);
+}
+.cube-option:hover { transform: scale(1.05); }
+.cube-option.selected { border-color: #5b8dd9; background: rgba(91,141,217,0.2); }
+.cube-option img { width: 100%; height: 100%; object-fit: contain; }
+
+/* Tags */
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+.tag {
+    background: url('assets/button-beige.png') center/100% 100% no-repeat;
+    padding: 4px 10px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tag-remove { cursor: pointer; opacity: 0.6; }
+.tag-remove:hover { opacity: 1; }
+.tag-input {
+    border: none;
+    background: transparent;
+    font-family: 'Roboto', sans-serif;
+    font-size: 13px;
+    outline: none;
+    min-width: 80px;
+}
+
+/* Links */
+.links-list { margin-bottom: 8px; }
+.link-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+}
+.link-item a {
+    color: #2980b9;
+    text-decoration: none;
+    font-size: 13px;
+}
+.link-item a:hover { text-decoration: underline; }
+.link-item button {
+    background: none;
+    border: none;
+    color: #c0392b;
+    cursor: pointer;
+}
+.add-link-btn {
+    background: none;
+    border: none;
+    color: #2980b9;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+}
+.add-link-btn:hover { text-decoration: underline; }
+
+/* Dates */
+.dates-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.date-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+}
+.date-field label { font-weight: 500; }
+.date-field input {
+    padding: 4px 8px;
+    border: 2px solid #1a1a1a;
+    border-radius: 4px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 11px;
+}
+
+/* Drawer footer */
+.drawer-footer {
+    padding: 16px 20px;
+    border-top: 3px solid #1a1a1a;
+    display: flex;
+    gap: 12px;
+}
+.btn-delete {
+    background: url('assets/button-orange.png') center/100% 100% no-repeat;
+    border: none;
+    padding: 12px 20px;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+}
+.btn-vault-project {
+    background: url('assets/button-green.png') center/100% 100% no-repeat;
+    border: none;
+    padding: 12px 20px;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    flex: 1;
+}
+.btn-delete:disabled, .btn-vault-project:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ===== VAULT VIEW ===== */
+.vault-view {
+    display: none;
+}
+.vault-view.active { display: block; }
+.grid-view { display: block; }
+.grid-view.hidden { display: none; }
+
+.vault-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.back-btn {
+    background: url('assets/button-beige.png') center/100% 100% no-repeat;
+    border: none;
+    padding: 10px 16px;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+}
+.vault-title {
+    font-family: 'Bangers', cursive;
+    font-size: 36px;
+    color: #fff;
+    text-shadow: 2px 2px 0 #1a1a1a;
+}
+.vault-search {
+    padding: 10px 16px;
+    border: 3px solid #1a1a1a;
+    border-radius: 8px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 14px;
+    margin-left: auto;
+    width: 200px;
+}
+
+.vault-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+}
+.vault-item {
+    background: url('assets/bg-beige.png') center/cover;
+    border: 3px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: transform var(--transition);
+}
+.vault-item:hover { transform: scale(1.03); }
+.vault-item-cube { width: 80px; height: 80px; margin: 0 auto 12px; }
+.vault-item-cube img { width: 100%; height: 100%; object-fit: contain; }
+.vault-item-title {
+    font-family: 'Bangers', cursive;
+    font-size: 14px;
+    text-align: center;
+    margin-bottom: 4px;
+}
+.vault-item-date { font-size: 11px; color: var(--text-light); text-align: center; }
+
+.vault-empty {
+    text-align: center;
+    padding: 60px;
+    color: #fff;
+}
+.vault-empty-icon { font-size: 48px; margin-bottom: 16px; }
+
+/* ===== MODALS ===== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition);
+    z-index: 500;
+}
+.modal-overlay.visible { opacity: 1; pointer-events: auto; }
+
+.modal {
+    background: url('assets/bg-beige.png') center/cover;
+    border: 4px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+}
+.modal-title {
+    font-family: 'Bangers', cursive;
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+.modal-text {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-bottom: 20px;
+}
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+.modal-btn {
+    padding: 10px 20px;
+    border: none;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+}
+.modal-btn.secondary { background: url('assets/button-beige.png') center/100% 100% no-repeat; }
+.modal-btn.primary { background: url('assets/button-yellow.png') center/100% 100% no-repeat; }
+
+.link-modal-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.link-modal-input {
+    padding: 12px;
+    border: 3px solid #1a1a1a;
+    border-radius: 8px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 14px;
+}
+
+/* ===== TOAST ===== */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: #1a1a1a;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+.toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+    </style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+    <img src="assets/logo-slate.png" alt="Slate">
+    <div class="spinner"></div>
+</div>
+
+<!-- Auth Container -->
+<div id="auth-container">
+    <div class="auth-box">
+        <img src="assets/logo-slate.png" alt="Slate">
+        <p>Track your creative projects</p>
+        
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+            <button class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</button>
+        </div>
+        
+        <div class="auth-error" id="auth-error"></div>
+        <div class="auth-success" id="auth-success"></div>
+        
+        <form id="auth-form">
+            <input type="email" class="auth-input" id="auth-email" placeholder="Email" required>
+            <input type="password" class="auth-input" id="auth-password" placeholder="Password" required>
+            <button type="submit" class="auth-submit" id="auth-submit">SIGN IN</button>
+        </form>
+    </div>
+</div>
+
+<!-- App Container -->
+<div class="app-container" id="app-container">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <img src="assets/logo-slate.png" alt="Slate" class="logo">
+        
+        <div class="nav-label">STAGES</div>
+        <div class="nav-item active" data-filter="all"><span>All Projects</span><span class="count" id="count-all">0</span></div>
+        <div class="nav-item" data-filter="seed"><span>Seed</span><span class="count" id="count-seed">0/6</span></div>
+        <div class="nav-item" data-filter="sprout"><span>Sprout</span><span class="count" id="count-sprout">0/6</span></div>
+        <div class="nav-item" data-filter="build"><span>Build</span><span class="count" id="count-build">0/6</span></div>
+        <div class="nav-item" data-filter="polish"><span>Polish</span><span class="count" id="count-polish">0/6</span></div>
+        <div class="nav-item" data-filter="done"><span>Done</span><span class="count" id="count-done">0/6</span></div>
+        
+        <div class="nav-label">FILTERS</div>
+        <div class="nav-item" data-filter="ready"><span class="dot"></span><span>Ready to Move</span></div>
+        <div class="nav-item" data-filter="blocked"><span>Blocked</span></div>
+        
+        <div class="sidebar-buttons">
+            <button class="btn-new" id="btn-new-project">+ New Project</button>
+            <button class="btn-vault" id="btn-vault">◇ Vault</button>
+            <button class="btn-logout" id="btn-logout">↪ Sign Out</button>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content" id="main-content">
+        
+        <!-- Grid View -->
+        <div class="grid-view" id="grid-view">
+            <header class="grid-header">
+                <img src="assets/title-projects.png" alt="Projects" class="title-projects">
+            </header>
+            
+            <div class="grid-container">
+                <div class="stage-labels">
+                    <div class="stage-label"><img src="assets/stage-tag.png" alt="Seed" data-stage="seed"></div>
+                    <div class="stage-label"><img src="assets/stage-tag.png" alt="Sprout" data-stage="sprout"></div>
+                    <div class="stage-label"><img src="assets/stage-tag.png" alt="Build" data-stage="build"></div>
+                    <div class="stage-label"><img src="assets/stage-tag.png" alt="Polish" data-stage="polish"></div>
+                    <div class="stage-label"><img src="assets/stage-tag.png" alt="Done" data-stage="done"></div>
+                </div>
+                
+                <div class="grid-wrapper">
+                    <div class="grid" id="grid"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Vault View -->
+        <div class="vault-view" id="vault-view">
+            <header class="vault-header">
+                <button class="back-btn" id="back-to-grid">← Back</button>
+                <h1 class="vault-title">VAULT</h1>
+                <input type="text" class="vault-search" placeholder="Search vault..." id="vault-search">
+            </header>
+            <div class="vault-grid" id="vault-grid"></div>
+            <div class="vault-empty" id="vault-empty">
+                <div class="vault-empty-icon">📦</div>
+                <p>No completed projects yet</p>
+            </div>
+        </div>
+        
+    </main>
+    
+    <!-- Drawer -->
+    <div class="drawer-overlay" id="drawer-overlay"></div>
+    <aside class="drawer" id="drawer">
+        <header class="drawer-header">
+            <input type="text" class="drawer-title-input" placeholder="Project title..." id="drawer-title">
+            <button class="drawer-close" id="drawer-close">×</button>
+        </header>
+        
+        <div class="drawer-body">
+            <!-- Stage -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">STAGE</div>
+                <div class="drawer-row">
+                    <div class="stage-display" id="drawer-stage">SEED</div>
+                    <div class="stage-nav">
+                        <button id="btn-move-back">‹</button>
+                        <button id="btn-move-forward">›</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notes -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">NOTES</div>
+                <textarea class="drawer-input" id="drawer-notes" placeholder="Add notes..." rows="3"></textarea>
+            </div>
+            
+            <!-- Tasks -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">TASKS</div>
+                <div class="todo-tabs" id="todo-tabs"></div>
+                <div class="todo-input-row">
+                    <input type="text" class="drawer-input" id="todo-input" placeholder="Add task...">
+                    <button id="btn-add-todo">Add</button>
+                </div>
+                <ul class="todo-list" id="todo-list"></ul>
+            </div>
+            
+            <!-- Customize -->
+            <div class="drawer-section">
+                <button class="customize-toggle" id="customize-toggle">⚙ Customize Appearance</button>
+                <div class="customize-panel" id="customize-panel">
+                    <div class="drawer-section-title">COLOR</div>
+                    <div class="cube-grid" id="cube-grid"></div>
+                </div>
+            </div>
+            
+            <!-- Tags -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">TAGS</div>
+                <div class="tags-container" id="tags-container"></div>
+            </div>
+            
+            <!-- Links -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">LINKS</div>
+                <div class="links-list" id="links-list"></div>
+                <button class="add-link-btn" id="btn-add-link">+ Add link</button>
+            </div>
+            
+            <!-- Dates -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">DATES</div>
+                <div class="dates-row">
+                    <div class="date-field">
+                        <label>Created</label>
+                        <span id="date-created">-</span>
+                    </div>
+                    <div class="date-field">
+                        <label>Target</label>
+                        <input type="date" id="date-target">
+                    </div>
+                    <div class="date-field">
+                        <label>Due</label>
+                        <input type="date" id="date-due">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="drawer-footer">
+            <button class="btn-delete" id="btn-delete">Delete</button>
+            <button class="btn-vault-project" id="btn-vault-project">Send to Vault</button>
+        </footer>
+    </aside>
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip">
+    <div class="tooltip-title"></div>
+    <div class="tooltip-stage"></div>
+    <div class="tooltip-status"><span class="dot"></span><span class="text"></span></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="confirm-modal">
+    <div class="modal">
+        <h3 class="modal-title" id="confirm-title">Confirm</h3>
+        <p class="modal-text" id="confirm-text">Are you sure?</p>
+        <div class="modal-actions">
+            <button class="modal-btn secondary" id="confirm-cancel">Cancel</button>
+            <button class="modal-btn primary" id="confirm-ok">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="link-modal">
+    <div class="modal">
+        <h3 class="modal-title">Add Link</h3>
+        <div class="link-modal-inputs">
+            <input type="text" class="link-modal-input" placeholder="Label" id="link-label-input">
+            <input type="url" class="link-modal-input" placeholder="https://..." id="link-url-input">
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn secondary" id="link-cancel">Cancel</button>
+            <button class="modal-btn primary" id="link-add">Add</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="vault-detail-modal">
+    <div class="modal" style="max-width:500px">
+        <h3 class="modal-title" id="vault-detail-title">Project</h3>
+        <div id="vault-detail-cube" style="width:100px;height:100px;margin:20px auto"></div>
+        <p class="modal-text" id="vault-detail-notes"></p>
+        <div style="margin-bottom:16px">
+            <div class="drawer-section-title">Tags</div>
+            <div id="vault-detail-tags" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+        <div style="margin-bottom:16px">
+            <div class="drawer-section-title">Completed</div>
+            <p id="vault-detail-date" style="font-size:13px;color:var(--text-light)"></p>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn secondary" id="vault-detail-close">Close</button>
+            <button class="modal-btn primary" id="vault-detail-duplicate">Duplicate</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== SUPABASE CONFIGURATION =====
+const SUPABASE_URL = 'https://atepilrfnektfuqtmryx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0ZXBpbHJmbmVrdGZ1cXRtcnl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODk5NDEsImV4cCI6MjA4Mjc2NTk0MX0.gJ8lbzRTA5KImG_cFiuNez1V75R4hVpdeOlxPltjHcE';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ===== CONSTANTS =====
+const STAGES = ['seed', 'sprout', 'build', 'polish', 'done'];
+const CUBE_STYLES = [
+    'box1_teal', 'box2_yellow', 'box3_purple', 'Box4_brown', 'box5_red',
+    'box7_bluegreen', 'box8_orangegreen', 'box9_redblueyellow', 'box10_purpleorange',
+    'box11_yellowblue', 'box12_red', 'box13_darkblue', 'box14_tealpink', 'box15_pinkteal'
+];//REPLACED
+const CUBE_STYLES_OLD = [
+    'box1_teal', 'box2_yellow', 'box3_purple', 'Box4_brown', 'box5_red',
+    'box7_bluegreen', 'box8_orangegreen', 'box9_redblueyellow', 'box10_purpleorange',
+    'box11_yellowblue', 'box12_red', 'box13_darkblue', 'box14_tealpink', 'box15_pinkteal'
+];
+
+// ===== STATE =====
+let state = {
+    user: null,
+    projects: [],
+    vault: [],
+    selectedProjectId: null,
+    currentTodoStage: 'seed',
+    currentView: 'grid',
+    draggingProjectId: null,
+    currentVaultItem: null,
+    customizePanelOpen: false,
+    syncing: false
+};
+
+// ===== AUTH FUNCTIONS =====
+let currentAuthMode = 'login';
+
+function switchAuthTab(mode) {
+    currentAuthMode = mode;
+    document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+    document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+    document.getElementById('auth-submit').textContent = mode === 'login' ? 'SIGN IN' : 'SIGN UP';
+    document.getElementById('auth-error').style.display = 'none';
+    document.getElementById('auth-success').style.display = 'none';
+}
+
+async function checkAuth() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+        state.user = session.user;
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('app-container').style.display = 'flex';
+        await loadDataFromSupabase();
+    } else {
+        document.getElementById('auth-container').style.display = 'flex';
+        document.getElementById('app-container').style.display = 'none';
+    }
+    document.getElementById('loading-overlay').style.display = 'none';
+}
+
+async function handleLogin(email, password) {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    state.user = data.user;
+    document.getElementById('auth-container').style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+    await loadDataFromSupabase();
+}
+
+async function handleSignup(email, password) {
+    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) throw error;
+    if (data.user && !data.session) {
+        return 'Check your email to confirm your account';
+    }
+    state.user = data.user;
+    document.getElementById('auth-container').style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+    await loadDataFromSupabase();
+    return null;
+}
+
+async function handleLogout() {
+    await supabaseClient.auth.signOut();
+    state.user = null;
+    state.projects = [];
+    state.vault = [];
+    document.getElementById('auth-container').style.display = 'flex';
+    document.getElementById('app-container').style.display = 'none';
+}
+
+// ===== DATA FUNCTIONS =====
+async function loadDataFromSupabase() {
+    if (!state.user) return;
+    try {
+        const { data, error } = await supabaseClient
+            .from('user_saves')
+            .select('save_data')
+            .eq('user_id', state.user.id)
+            .single();
+        
+        if (error && error.code !== 'PGRST116') throw error;
+        
+        if (data && data.save_data) {
+            state.projects = data.save_data.projects || [];
+            state.vault = data.save_data.vault || [];
+        } else {
+            state.projects = [];
+            state.vault = [];
+        }
+        renderGrid();
+    } catch (error) {
+        console.error('Load error:', error);
+        showToast('Error loading data');
+    }
+}
+
+let saveTimeout;
+async function saveDataToSupabase() {
+    if (!state.user || state.syncing) return;
+    state.syncing = true;
+    try {
+        const { error } = await supabaseClient
+            .from('user_saves')
+            .upsert({
+                user_id: state.user.id,
+                save_data: { projects: state.projects, vault: state.vault },
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        if (error) throw error;
+    } catch (error) {
+        console.error('Save error:', error);
+    } finally {
+        state.syncing = false;
+    }
+}
+
+function saveProject(p) {
+    const idx = state.projects.findIndex(proj => proj.id === p.id);
+    if (idx >= 0) state.projects[idx] = p;
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveDataToSupabase, 500);
+}
+
+function deleteProjectFromDB(id) {
+    state.projects = state.projects.filter(p => p.id !== id);
+    saveDataToSupabase();
+}
+
+function saveVaultItem(item) {
+    const idx = state.vault.findIndex(v => v.id === item.id);
+    if (idx >= 0) state.vault[idx] = item;
+    else state.vault.push(item);
+    saveDataToSupabase();
+}
+
+// ===== UTILITY FUNCTIONS =====
+function generateId() { return 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9); }
+function formatDate(d) { return d ? new Date(d).toLocaleDateString() : '-'; }
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('visible');
+    setTimeout(() => t.classList.remove('visible'), 2500);
+}
+
+function showConfirm(title, text) {
+    return new Promise(resolve => {
+        const m = document.getElementById('confirm-modal');
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-text').textContent = text;
+        m.classList.add('visible');
+        const ok = () => { m.classList.remove('visible'); cleanup(); resolve(true); };
+        const cancel = () => { m.classList.remove('visible'); cleanup(); resolve(false); };
+        const cleanup = () => {
+            document.getElementById('confirm-ok').removeEventListener('click', ok);
+            document.getElementById('confirm-cancel').removeEventListener('click', cancel);
+        };
+        document.getElementById('confirm-ok').addEventListener('click', ok);
+        document.getElementById('confirm-cancel').addEventListener('click', cancel);
+    });
+}
+
+// ===== PROJECT FUNCTIONS =====
+function createProject() {
+    const seedProjects = state.projects.filter(p => p.stage === 'seed');
+    const occupied = seedProjects.map(p => p.cellPosition.col);
+    let col = -1;
+    for (let c = 0; c < 6; c++) { if (!occupied.includes(c)) { col = c; break; } }
+    if (col === -1) { showToast('Seed row is full'); return null; }
+    
+    const project = {
+        id: generateId(),
+        title: '',
+        stage: 'seed',
+        cellPosition: { row: 0, col: col },
+        cubeStyle: CUBE_STYLES[Math.floor(Math.random() * CUBE_STYLES.length)],
+        notes: '',
+        tags: [],
+        links: [],
+        dates: {
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            targetDate: null,
+            dueDate: null
+        },
+        todosByStage: { seed: [], sprout: [], build: [], polish: [], done: [] }
+    };
+    state.projects.push(project);
+    saveProject(project);
+    return project;
+}
+
+function getProject(id) { return state.projects.find(p => p.id === id); }
+function canMoveForward(p) {
+    const todos = p.todosByStage[p.stage];
+    return !todos || todos.length === 0 || todos.every(t => t.done);
+}
+function getStageIndex(s) { return STAGES.indexOf(s); }
+function isCellOccupied(row, col, excludeId) {
+    return state.projects.some(p => p.cellPosition.row === row && p.cellPosition.col === col && p.id !== excludeId);
+}
+
+// ===== RENDER FUNCTIONS =====
+function renderGrid() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    
+    for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 6; col++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            cell.dataset.stage = STAGES[row];
+            
+            const project = state.projects.find(p => p.cellPosition.row === row && p.cellPosition.col === col);
+            if (project) cell.appendChild(createCubeElement(project));
+            
+            cell.addEventListener('dragover', handleDragOver);
+            cell.addEventListener('dragleave', handleDragLeave);
+            cell.addEventListener('drop', handleDrop);
+            grid.appendChild(cell);
+        }
+    }
+    updateCounts();
+    renderStageLabels();
+}
+
+function renderStageLabels() {
+    const labels = document.querySelectorAll('.stage-label img');
+    const stageNames = ['SEED', 'SPROUT', 'BUILD', 'POLISH', 'DONE'];
+    labels.forEach((img, i) => {
+        // We'll add text overlay via CSS or keep using the tag image
+        img.alt = stageNames[i];
+    });
+}
+
+function createCubeElement(project) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cube-wrapper';
+    wrapper.dataset.projectId = project.id;
+    wrapper.dataset.ready = canMoveForward(project);
+    wrapper.draggable = true;
+    if (state.selectedProjectId === project.id) wrapper.classList.add('selected');
+    
+    const img = document.createElement('img');
+    img.className = 'cube-img';
+    img.src = 'assets/' + project.cubeStyle + '.png';
+    img.alt = project.title || 'Project';
+    wrapper.appendChild(img);
+    
+    if (project.title) {
+        const title = document.createElement('div');
+        title.className = 'cube-title';
+        title.textContent = project.title.length > 15 ? project.title.substring(0, 15) + '…' : project.title;
+        wrapper.appendChild(title);
+    }
+    
+    const ind = document.createElement('div');
+    ind.className = 'ready-indicator';
+    wrapper.appendChild(ind);
+    
+    wrapper.addEventListener('click', () => openDrawer(project.id));
+    wrapper.addEventListener('mouseenter', e => showTooltip(e, project));
+    wrapper.addEventListener('mouseleave', hideTooltip);
+    wrapper.addEventListener('dragstart', handleDragStart);
+    wrapper.addEventListener('dragend', handleDragEnd);
+    
+    return wrapper;
+}
+
+function updateCounts() {
+    const counts = { seed: 0, sprout: 0, build: 0, polish: 0, done: 0 };
+    state.projects.forEach(p => counts[p.stage]++);
+    document.getElementById('count-all').textContent = state.projects.length;
+    STAGES.forEach(s => document.getElementById('count-' + s).textContent = counts[s] + '/6');
+}
+
+// ===== TOOLTIP =====
+function showTooltip(e, project) {
+    const tooltip = document.getElementById('tooltip');
+    const rect = e.target.getBoundingClientRect();
+    tooltip.querySelector('.tooltip-title').textContent = project.title || 'Untitled';
+    tooltip.querySelector('.tooltip-stage').textContent = project.stage.toUpperCase();
+    const ready = canMoveForward(project);
+    tooltip.querySelector('.tooltip-status .dot').className = 'dot ' + (ready ? 'ready' : 'blocked');
+    const todos = project.todosByStage[project.stage];
+    const text = todos && todos.length > 0 
+        ? todos.filter(t => t.done).length + '/' + todos.length + ' tasks · ' + (ready ? 'Ready' : 'Blocked')
+        : (ready ? 'Ready to move' : 'Blocked');
+    tooltip.querySelector('.tooltip-status .text').textContent = text;
+    tooltip.style.left = rect.left + 'px';
+    tooltip.style.top = (rect.bottom + 8) + 'px';
+    tooltip.classList.add('visible');
+}
+
+function hideTooltip() {
+    document.getElementById('tooltip').classList.remove('visible');
+}
+
+// ===== DRAG & DROP =====
+function handleDragStart(e) {
+    state.draggingProjectId = e.currentTarget.dataset.projectId;
+    e.currentTarget.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    state.draggingProjectId = null;
+    e.currentTarget.classList.remove('dragging');
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleDrop(e) {
+    e.preventDefault();
+    const cell = e.currentTarget;
+    cell.classList.remove('drag-over');
+    
+    const projectId = state.draggingProjectId;
+    if (!projectId) return;
+    
+    const project = getProject(projectId);
+    if (!project) return;
+    
+    const targetRow = parseInt(cell.dataset.row);
+    const targetCol = parseInt(cell.dataset.col);
+    const currentRow = project.cellPosition.row;
+    
+    if (isCellOccupied(targetRow, targetCol, projectId)) {
+        cell.classList.add('invalid-drop');
+        setTimeout(() => cell.classList.remove('invalid-drop'), 400);
+        showToast('Cell occupied');
+        return;
+    }
+    
+    // Same row - just move horizontally
+    if (targetRow === currentRow) {
+        project.cellPosition.col = targetCol;
+        project.dates.updatedAt = new Date().toISOString();
+        saveProject(project);
+        renderGrid();
+        return;
+    }
+    
+    // Moving forward
+    if (targetRow > currentRow) {
+        if (targetRow - currentRow > 1) {
+            cell.classList.add('invalid-drop');
+            setTimeout(() => cell.classList.remove('invalid-drop'), 400);
+            showToast('Cannot skip stages');
+            return;
+        }
+        if (!canMoveForward(project)) {
+            cell.classList.add('invalid-drop');
+            setTimeout(() => cell.classList.remove('invalid-drop'), 400);
+            showToast('Complete tasks first');
+            return;
+        }
+        project.stage = STAGES[targetRow];
+        project.cellPosition = { row: targetRow, col: targetCol };
+        project.dates.updatedAt = new Date().toISOString();
+        saveProject(project);
+        renderGrid();
+        showToast('Moved to ' + project.stage);
+        return;
+    }
+    
+    // Moving backward
+    if (targetRow < currentRow) {
+        if (currentRow - targetRow > 1) {
+            cell.classList.add('invalid-drop');
+            setTimeout(() => cell.classList.remove('invalid-drop'), 400);
+            showToast('Cannot skip stages');
+            return;
+        }
+        project.stage = STAGES[targetRow];
+        project.cellPosition = { row: targetRow, col: targetCol };
+        project.dates.updatedAt = new Date().toISOString();
+        saveProject(project);
+        renderGrid();
+        showToast('Moved back to ' + project.stage);
+    }
+}
+
+// ===== DRAWER =====
+function openDrawer(projectId) {
+    state.selectedProjectId = projectId;
+    state.customizePanelOpen = false;
+    const project = getProject(projectId);
+    if (!project) return;
+    
+    document.getElementById('main-content').classList.add('drawer-open');
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawer-overlay').classList.add('visible');
+    document.getElementById('customize-panel').classList.remove('visible');
+    
+    populateDrawer(project);
+    renderGrid();
+    
+    // Focus title input
+    setTimeout(() => document.getElementById('drawer-title').focus(), 100);
+}
+
+function closeDrawer() {
+    state.selectedProjectId = null;
+    state.customizePanelOpen = false;
+    document.getElementById('main-content').classList.remove('drawer-open');
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('drawer-overlay').classList.remove('visible');
+    renderGrid();
+}
+
+function populateDrawer(project) {
+    document.getElementById('drawer-title').value = project.title;
+    document.getElementById('drawer-stage').textContent = project.stage.toUpperCase();
+    document.getElementById('drawer-notes').value = project.notes || '';
+    
+    // Stage buttons
+    const stageIndex = getStageIndex(project.stage);
+    document.getElementById('btn-move-back').disabled = stageIndex === 0;
+    document.getElementById('btn-move-forward').disabled = stageIndex >= STAGES.length - 1 || !canMoveForward(project);
+    document.getElementById('btn-vault-project').disabled = project.stage !== 'done';
+    
+    // Cube grid
+    renderCubeGrid(project);
+    
+    // Tags
+    renderTags(project);
+    
+    // Links
+    renderLinks(project);
+    
+    // Dates
+    document.getElementById('date-created').textContent = formatDate(project.dates.createdAt);
+    document.getElementById('date-target').value = project.dates.targetDate || '';
+    document.getElementById('date-due').value = project.dates.dueDate || '';
+    
+    // Todos
+    state.currentTodoStage = project.stage;
+    updateTodoTabs();
+    renderTodos(project);
+}
+
+function renderCubeGrid(project) {
+    const grid = document.getElementById('cube-grid');
+    grid.innerHTML = '';
+    
+    CUBE_STYLES.forEach(style => {
+        const opt = document.createElement('div');
+        opt.className = 'cube-option' + (style === project.cubeStyle ? ' selected' : '');
+        const img = document.createElement('img');
+        img.src = 'assets/' + style + '.png';
+        img.alt = style;
+        opt.appendChild(img);
+        opt.onclick = () => {
+            project.cubeStyle = style;
+            project.dates.updatedAt = new Date().toISOString();
+            saveProject(project);
+            renderCubeGrid(project);
+            renderGrid();
+        };
+        grid.appendChild(opt);
+    });
+}
+
+function renderTags(project) {
+    const container = document.getElementById('tags-container');
+    container.innerHTML = '';
+    
+    project.tags.forEach((tag, i) => {
+        const el = document.createElement('span');
+        el.className = 'tag';
+        el.innerHTML = tag + '<span class="tag-remove" data-index="' + i + '">×</span>';
+        container.appendChild(el);
+    });
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'tag-input';
+    input.placeholder = project.tags.length ? '' : 'Add tag...';
+    input.id = 'tag-input';
+    container.appendChild(input);
+    
+    container.querySelectorAll('.tag-remove').forEach(btn => {
+        btn.onclick = () => {
+            project.tags.splice(parseInt(btn.dataset.index), 1);
+            project.dates.updatedAt = new Date().toISOString();
+            saveProject(project);
+            renderTags(project);
+        };
+    });
+    
+    input.onkeydown = e => {
+        if (e.key === 'Enter' && input.value.trim()) {
+            project.tags.push(input.value.trim());
+            project.dates.updatedAt = new Date().toISOString();
+            saveProject(project);
+            renderTags(project);
+        }
+    };
+}
+
+function renderLinks(project) {
+    const container = document.getElementById('links-list');
+    container.innerHTML = '';
+    
+    project.links.forEach((link, i) => {
+        const el = document.createElement('div');
+        el.className = 'link-item';
+        el.innerHTML = '<a href="' + link.url + '" target="_blank">' + link.label + '</a><button data-index="' + i + '">×</button>';
+        container.appendChild(el);
+    });
+    
+    container.querySelectorAll('button').forEach(btn => {
+        btn.onclick = () => {
+            project.links.splice(parseInt(btn.dataset.index), 1);
+            project.dates.updatedAt = new Date().toISOString();
+            saveProject(project);
+            renderLinks(project);
+        };
+    });
+}
+
+function updateTodoTabs() {
+    const container = document.getElementById('todo-tabs');
+    container.innerHTML = '';
+    
+    STAGES.forEach(stage => {
+        const btn = document.createElement('button');
+        btn.className = 'todo-tab' + (stage === state.currentTodoStage ? ' active' : '');
+        btn.textContent = stage.toUpperCase();
+        btn.onclick = () => {
+            state.currentTodoStage = stage;
+            updateTodoTabs();
+            const project = getProject(state.selectedProjectId);
+            if (project) renderTodos(project);
+        };
+        container.appendChild(btn);
+    });
+}
+
+function renderTodos(project) {
+    const list = document.getElementById('todo-list');
+    list.innerHTML = '';
+    
+    const todos = project.todosByStage[state.currentTodoStage] || [];
+    todos.forEach((todo, i) => {
+        const li = document.createElement('li');
+        li.className = 'todo-item' + (todo.done ? ' done' : '');
+        li.innerHTML = `
+            <input type="checkbox" ${todo.done ? 'checked' : ''} data-index="${i}">
+            <span>${todo.text}</span>
+            <button data-index="${i}">×</button>
+        `;
+        list.appendChild(li);
+    });
+    
+    list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.onchange = () => {
+            const idx = parseInt(cb.dataset.index);
+            project.todosByStage[state.currentTodoStage][idx].done = cb.checked;
+            project.dates.updatedAt = new Date().toISOString();
+            saveProject(project);
+            renderTodos(project);
+            populateDrawer(project);
+            renderGrid();
+        };
+    });
+    
+    list.querySelectorAll('button').forEach(btn => {
+        btn.onclick = () => {
+            const idx = parseInt(btn.dataset.index);
+            project.todosByStage[state.currentTodoStage].splice(idx, 1);
+            project.dates.updatedAt = new Date().toISOString();
+            saveProject(project);
+            renderTodos(project);
+            populateDrawer(project);
+            renderGrid();
+        };
+    });
+}
+
+// ===== VAULT =====
+function renderVault() {
+    const grid = document.getElementById('vault-grid');
+    const empty = document.getElementById('vault-empty');
+    const search = document.getElementById('vault-search').value.toLowerCase();
+    
+    const filtered = state.vault.filter(item => 
+        item.title.toLowerCase().includes(search) || 
+        item.tags.some(t => t.toLowerCase().includes(search))
+    );
+    
+    grid.innerHTML = '';
+    empty.style.display = filtered.length ? 'none' : 'block';
+    
+    filtered.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'vault-item';
+        el.innerHTML = `
+            <div class="vault-item-cube"><img src="assets/${item.cubeStyle}.png" alt="${item.title}"></div>
+            <div class="vault-item-title">${item.title || 'Untitled'}</div>
+            <div class="vault-item-date">${formatDate(item.completedAt)}</div>
+        `;
+        el.onclick = () => openVaultDetail(item);
+        grid.appendChild(el);
+    });
+}
+
+function openVaultDetail(item) {
+    state.currentVaultItem = item;
+    const modal = document.getElementById('vault-detail-modal');
+    document.getElementById('vault-detail-title').textContent = item.title || 'Untitled';
+    document.getElementById('vault-detail-cube').innerHTML = `<img src="assets/${item.cubeStyle}.png" style="width:100%;height:100%;object-fit:contain">`;
+    document.getElementById('vault-detail-notes').textContent = item.notes || 'No notes';
+    document.getElementById('vault-detail-date').textContent = formatDate(item.completedAt);
+    
+    const tagsContainer = document.getElementById('vault-detail-tags');
+    tagsContainer.innerHTML = '';
+    item.tags.forEach(tag => {
+        const el = document.createElement('span');
+        el.className = 'tag';
+        el.textContent = tag;
+        tagsContainer.appendChild(el);
+    });
+    
+    modal.classList.add('visible');
+}
+
+// ===== EVENT LISTENERS =====
+document.addEventListener('DOMContentLoaded', async () => {
+    // Auth form
+    document.getElementById('auth-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-password').value;
+        const errorEl = document.getElementById('auth-error');
+        const successEl = document.getElementById('auth-success');
+        const submitBtn = document.getElementById('auth-submit');
+        
+        submitBtn.disabled = true;
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+        
+        try {
+            if (currentAuthMode === 'login') {
+                await handleLogin(email, password);
+            } else {
+                const msg = await handleSignup(email, password);
+                if (msg) {
+                    successEl.textContent = msg;
+                    successEl.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            errorEl.textContent = error.message;
+            errorEl.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+    
+    // Check auth
+    await checkAuth();
+    
+    // Navigation
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.onclick = () => {
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            // Filter logic could go here
+        };
+    });
+    
+    // New project
+    document.getElementById('btn-new-project').onclick = () => {
+        const p = createProject();
+        if (p) {
+            renderGrid();
+            openDrawer(p.id);
+            state.customizePanelOpen = true;
+            document.getElementById('customize-panel').classList.add('visible');
+        }
+    };
+    
+    // Vault
+    document.getElementById('btn-vault').onclick = () => {
+        state.currentView = 'vault';
+        document.getElementById('grid-view').classList.add('hidden');
+        document.getElementById('vault-view').classList.add('active');
+        renderVault();
+    };
+    
+    document.getElementById('back-to-grid').onclick = () => {
+        state.currentView = 'grid';
+        document.getElementById('vault-view').classList.remove('active');
+        document.getElementById('grid-view').classList.remove('hidden');
+    };
+    
+    document.getElementById('vault-search').oninput = renderVault;
+    
+    // Logout
+    document.getElementById('btn-logout').onclick = handleLogout;
+    
+    // Drawer
+    document.getElementById('drawer-close').onclick = closeDrawer;
+    document.getElementById('drawer-overlay').onclick = closeDrawer;
+    
+    document.getElementById('drawer-title').oninput = e => {
+        const p = getProject(state.selectedProjectId);
+        if (p) {
+            p.title = e.target.value;
+            p.dates.updatedAt = new Date().toISOString();
+            saveProject(p);
+            renderGrid();
+        }
+    };
+    
+    document.getElementById('drawer-notes').oninput = e => {
+        const p = getProject(state.selectedProjectId);
+        if (p) {
+            p.notes = e.target.value;
+            p.dates.updatedAt = new Date().toISOString();
+            saveProject(p);
+        }
+    };
+    
+    // Stage navigation
+    document.getElementById('btn-move-back').onclick = async () => {
+        const p = getProject(state.selectedProjectId);
+        if (p) {
+            const si = getStageIndex(p.stage);
+            if (si > 0) {
+                const prevStage = STAGES[si - 1];
+                const prevRow = si - 1;
+                let targetCol = -1;
+                for (let c = 0; c < 6; c++) { if (!isCellOccupied(prevRow, c)) { targetCol = c; break; } }
+                if (targetCol === -1) { showToast(prevStage + ' row is full'); return; }
+                p.stage = prevStage;
+                p.cellPosition = { row: prevRow, col: targetCol };
+                p.dates.updatedAt = new Date().toISOString();
+                saveProject(p);
+                renderGrid();
+                populateDrawer(p);
+                showToast('Moved to ' + prevStage);
+            }
+        }
+    };
+    
+    document.getElementById('btn-move-forward').onclick = async () => {
+        const p = getProject(state.selectedProjectId);
+        if (p && canMoveForward(p)) {
+            const si = getStageIndex(p.stage);
+            if (si < STAGES.length - 1) {
+                const nextStage = STAGES[si + 1];
+                const nextRow = si + 1;
+                let targetCol = -1;
+                for (let c = 0; c < 6; c++) { if (!isCellOccupied(nextRow, c)) { targetCol = c; break; } }
+                if (targetCol === -1) { showToast(nextStage + ' row is full'); return; }
+                p.stage = nextStage;
+                p.cellPosition = { row: nextRow, col: targetCol };
+                p.dates.updatedAt = new Date().toISOString();
+                saveProject(p);
+                renderGrid();
+                populateDrawer(p);
+                showToast('Moved to ' + nextStage);
+            }
+        }
+    };
+    
+    // Customize toggle
+    document.getElementById('customize-toggle').onclick = () => {
+        state.customizePanelOpen = !state.customizePanelOpen;
+        document.getElementById('customize-panel').classList.toggle('visible', state.customizePanelOpen);
+    };
+    
+    // Add todo
+    document.getElementById('btn-add-todo').onclick = () => {
+        const input = document.getElementById('todo-input');
+        const p = getProject(state.selectedProjectId);
+        if (p && input.value.trim()) {
+            if (!p.todosByStage[state.currentTodoStage]) p.todosByStage[state.currentTodoStage] = [];
+            p.todosByStage[state.currentTodoStage].push({ text: input.value.trim(), done: false });
+            p.dates.updatedAt = new Date().toISOString();
+            saveProject(p);
+            input.value = '';
+            renderTodos(p);
+            populateDrawer(p);
+            renderGrid();
+        }
+    };
+    
+    document.getElementById('todo-input').onkeydown = e => {
+        if (e.key === 'Enter') document.getElementById('btn-add-todo').click();
+    };
+    
+    // Dates
+    document.getElementById('date-target').onchange = e => {
+        const p = getProject(state.selectedProjectId);
+        if (p) {
+            p.dates.targetDate = e.target.value || null;
+            p.dates.updatedAt = new Date().toISOString();
+            saveProject(p);
+        }
+    };
+    
+    document.getElementById('date-due').onchange = e => {
+        const p = getProject(state.selectedProjectId);
+        if (p) {
+            p.dates.dueDate = e.target.value || null;
+            p.dates.updatedAt = new Date().toISOString();
+            saveProject(p);
+        }
+    };
+    
+    // Delete
+    document.getElementById('btn-delete').onclick = async () => {
+        const confirmed = await showConfirm('Delete Project', 'Are you sure you want to delete this project?');
+        if (confirmed) {
+            deleteProjectFromDB(state.selectedProjectId);
+            closeDrawer();
+            renderGrid();
+            showToast('Project deleted');
+        }
+    };
+    
+    // Send to vault
+    document.getElementById('btn-vault-project').onclick = async () => {
+        const p = getProject(state.selectedProjectId);
+        if (p && p.stage === 'done') {
+            const confirmed = await showConfirm('Send to Vault', 'Archive this completed project?');
+            if (confirmed) {
+                const vaultItem = {
+                    id: p.id,
+                    title: p.title,
+                    cubeStyle: p.cubeStyle,
+                    notes: p.notes,
+                    tags: p.tags,
+                    links: p.links,
+                    completedAt: new Date().toISOString()
+                };
+                saveVaultItem(vaultItem);
+                deleteProjectFromDB(p.id);
+                closeDrawer();
+                renderGrid();
+                showToast('Sent to vault');
+            }
+        }
+    };
+    
+    // Add link
+    document.getElementById('btn-add-link').onclick = () => {
+        document.getElementById('link-modal').classList.add('visible');
+        document.getElementById('link-label-input').value = '';
+        document.getElementById('link-url-input').value = '';
+    };
+    
+    document.getElementById('link-cancel').onclick = () => {
+        document.getElementById('link-modal').classList.remove('visible');
+    };
+    
+    document.getElementById('link-add').onclick = () => {
+        const p = getProject(state.selectedProjectId);
+        const label = document.getElementById('link-label-input').value.trim();
+        const url = document.getElementById('link-url-input').value.trim();
+        if (p && label && url) {
+            p.links.push({ label, url });
+            p.dates.updatedAt = new Date().toISOString();
+            saveProject(p);
+            renderLinks(p);
+            document.getElementById('link-modal').classList.remove('visible');
+        }
+    };
+    
+    // Vault detail modal
+    document.getElementById('vault-detail-close').onclick = () => {
+        document.getElementById('vault-detail-modal').classList.remove('visible');
+        state.currentVaultItem = null;
+    };
+    
+    document.getElementById('vault-detail-duplicate').onclick = () => {
+        if (state.currentVaultItem) {
+            const seedProjects = state.projects.filter(p => p.stage === 'seed');
+            if (seedProjects.length >= 6) {
+                showToast('Seed row is full');
+                return;
+            }
+            const occupied = seedProjects.map(p => p.cellPosition.col);
+            let col = -1;
+            for (let c = 0; c < 6; c++) { if (!occupied.includes(c)) { col = c; break; } }
+            
+            const project = {
+                id: generateId(),
+                title: state.currentVaultItem.title,
+                stage: 'seed',
+                cellPosition: { row: 0, col: col },
+                cubeStyle: state.currentVaultItem.cubeStyle,
+                notes: state.currentVaultItem.notes,
+                tags: state.currentVaultItem.tags.slice(),
+                links: state.currentVaultItem.links.slice(),
+                dates: {
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    targetDate: null,
+                    dueDate: null
+                },
+                todosByStage: { seed: [], sprout: [], build: [], polish: [], done: [] }
+            };
+            state.projects.push(project);
+            saveProject(project);
+            
+            document.getElementById('vault-detail-modal').classList.remove('visible');
+            state.currentVaultItem = null;
+            state.currentView = 'grid';
+            document.getElementById('vault-view').classList.remove('active');
+            document.getElementById('grid-view').classList.remove('hidden');
+            renderGrid();
+            showToast('Duplicated to Seed');
+        }
+    };
+});
+</script>
+</body>
+</html>
