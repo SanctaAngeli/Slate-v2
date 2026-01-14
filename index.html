@@ -140,6 +140,32 @@ body {
     top: 0;
     bottom: 0;
     z-index: 100;
+    transition: transform var(--transition);
+}
+.sidebar.hidden {
+    transform: translateX(-100%);
+}
+.sidebar-toggle {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 150;
+    background: url('assets/button-yellow.png') center/100% 100% no-repeat;
+    border: none;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sidebar-toggle:hover {
+    transform: scale(1.1);
+}
+.sidebar-toggle.sidebar-visible {
+    left: calc(var(--sidebar-width) + 20px);
 }
 .logo { height: 50px; margin-bottom: 24px; }
 .nav-label {
@@ -235,7 +261,10 @@ body {
     flex: 1;
     margin-left: var(--sidebar-width);
     padding: 24px 32px;
-    transition: margin-right var(--transition);
+    transition: margin-left var(--transition), margin-right var(--transition);
+}
+.main-content.sidebar-hidden {
+    margin-left: 0;
 }
 .main-content.drawer-open { margin-right: var(--drawer-width); }
 
@@ -335,22 +364,21 @@ body {
 }
 .cube-title {
     position: absolute;
-    /* Position on the front face of the cube - lower and slightly forward */
-    top: 58%;
-    left: 50%;
-    /* Skew to match the 3D perspective of the cube */
-    transform: translate(-50%, -50%) perspective(100px) rotateX(-5deg);
+    /* Position on the front face of the cube */
+    top: 62%;
+    left: 48%;
+    /* Transform to match cube's 3D perspective - skew upward */
+    transform: translate(-50%, -50%) skewY(-2deg) scaleY(0.95);
     font-family: 'Bangers', cursive;
-    font-size: clamp(9px, 1vw, 12px);
+    font-size: clamp(8px, 0.9vw, 11px);
     color: #1a1a1a;
     text-align: center;
-    max-width: 55%;
-    line-height: 1.1;
-    text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+    max-width: 50%;
+    line-height: 1.15;
     pointer-events: none;
-    /* Ensure text stays within bounds */
     word-wrap: break-word;
     overflow-wrap: break-word;
+    letter-spacing: 0.5px;
 }
 
 .ready-indicator {
@@ -954,6 +982,9 @@ body {
             <button class="btn-logout" id="btn-logout">↪ Sign Out</button>
         </div>
     </aside>
+    
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle sidebar-visible" id="sidebar-toggle">☰</button>
     
     <!-- Main Content -->
     <main class="main-content" id="main-content">
@@ -1926,6 +1957,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             applyFilter();
         };
     });
+    
+    // Sidebar toggle
+    document.getElementById('sidebar-toggle').onclick = () => {
+        const sidebar = document.querySelector('.sidebar');
+        const mainContent = document.getElementById('main-content');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+        
+        sidebar.classList.toggle('hidden');
+        mainContent.classList.toggle('sidebar-hidden');
+        toggleBtn.classList.toggle('sidebar-visible');
+        
+        // Change icon
+        toggleBtn.textContent = sidebar.classList.contains('hidden') ? '☰' : '✕';
+    };
     
     // New project
     document.getElementById('btn-new-project').onclick = () => {
