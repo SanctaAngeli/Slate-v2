@@ -12,12 +12,18 @@
 :root {
     --sidebar-width: 220px;
     --drawer-width: 420px;
-    /* Responsive cell size: min 80px, scales with viewport, max 130px */
-    --cell-size: clamp(80px, 10vw, 130px);
+    /* Fully responsive cell size - scales more aggressively */
+    --cell-size: clamp(70px, 12vw, 200px);
     --gap: 0px;
     --text-dark: #1a1a1a;
     --text-light: #4a4a4a;
     --transition: 0.3s ease;
+    
+    /* Text position variables - adjustable via settings */
+    --text-top: 58%;
+    --text-left: 52%;
+    --text-skew: -4deg;
+    --text-size: 0.9;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -148,24 +154,24 @@ body {
 .sidebar-toggle {
     position: fixed;
     top: 20px;
-    left: 20px;
     z-index: 150;
     background: url('assets/button-yellow.png') center/100% 100% no-repeat;
     border: none;
-    width: 44px;
-    height: 44px;
-    font-size: 20px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
     cursor: pointer;
     transition: all var(--transition);
     display: flex;
     align-items: center;
     justify-content: center;
+    left: calc(var(--sidebar-width) + 12px);
 }
 .sidebar-toggle:hover {
     transform: scale(1.1);
 }
-.sidebar-toggle.sidebar-visible {
-    left: calc(var(--sidebar-width) + 20px);
+.sidebar-toggle.sidebar-hidden {
+    left: 12px;
 }
 .logo { height: 50px; margin-bottom: 24px; }
 .nav-label {
@@ -272,8 +278,9 @@ body {
     display: flex;
     align-items: center;
     margin-bottom: 20px;
+    margin-left: 50px; /* Space for hamburger */
 }
-.title-projects { height: clamp(40px, 5vw, 60px); }
+.title-projects { height: clamp(40px, 6vw, 80px); }
 
 .grid-container { display: flex; gap: 12px; align-items: flex-start; }
 
@@ -291,20 +298,19 @@ body {
 }
 .stage-label-tag {
     background: url('assets/stage-tag.png') center/100% 100% no-repeat;
-    padding: clamp(8px, 1vw, 12px) clamp(16px, 2vw, 24px) clamp(8px, 1vw, 12px) clamp(12px, 1.5vw, 16px);
+    padding: clamp(8px, 1.2vw, 16px) clamp(16px, 2.5vw, 32px) clamp(8px, 1.2vw, 16px) clamp(10px, 1.5vw, 20px);
     font-family: 'Bangers', cursive;
-    font-size: clamp(12px, 1.3vw, 16px);
+    font-size: clamp(11px, 1.5vw, 20px);
     color: var(--text-dark);
     white-space: nowrap;
-    min-width: clamp(70px, 8vw, 100px);
+    min-width: clamp(60px, 10vw, 140px);
 }
 
-/* Grid - using the PNG which has built-in border */
+/* Grid - scales fully with viewport */
 .grid-wrapper {
     background: url('assets/grid-bg.png') center/100% 100% no-repeat;
-    padding: clamp(8px, 1vw, 12px);
+    padding: clamp(6px, 1vw, 16px);
     flex: 1;
-    max-width: calc(6 * var(--cell-size) + clamp(16px, 2vw, 24px));
 }
 .grid {
     display: grid;
@@ -357,28 +363,28 @@ body {
 .cube-wrapper.selected { filter: drop-shadow(0 0 8px #5b8dd9); }
 
 .cube-img {
-    width: 85%;
-    height: 85%;
+    width: 88%;
+    height: 88%;
     object-fit: contain;
     position: relative;
 }
+
+/* Text positioning - uses CSS variables for live adjustment */
 .cube-title {
     position: absolute;
-    /* Position on the front face of the cube */
-    top: 62%;
-    left: 48%;
-    /* Transform to match cube's 3D perspective - skew upward */
-    transform: translate(-50%, -50%) skewY(-2deg) scaleY(0.95);
+    top: var(--text-top);
+    left: var(--text-left);
+    transform: translate(-50%, -50%) skewY(var(--text-skew));
     font-family: 'Bangers', cursive;
-    font-size: clamp(8px, 0.9vw, 11px);
+    font-size: calc(clamp(8px, 1.1vw, 14px) * var(--text-size));
     color: #1a1a1a;
     text-align: center;
-    max-width: 50%;
-    line-height: 1.15;
+    max-width: 46%;
+    line-height: 1.1;
     pointer-events: none;
     word-wrap: break-word;
     overflow-wrap: break-word;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 .ready-indicator {
@@ -896,16 +902,37 @@ body {
 }
 .settings-row label {
     font-weight: 500;
-    min-width: 60px;
+    min-width: 80px;
     font-size: 13px;
 }
-.settings-row input {
+.settings-row input[type="text"] {
     flex: 1;
     padding: 8px 12px;
     border: 2px solid #1a1a1a;
     border-radius: 6px;
     font-family: 'Roboto', sans-serif;
     font-size: 13px;
+}
+.settings-row input[type="range"] {
+    flex: 1;
+}
+.settings-row .range-value {
+    min-width: 50px;
+    text-align: right;
+    font-size: 12px;
+    font-family: monospace;
+}
+.settings-section-title {
+    font-family: 'Bangers', cursive;
+    font-size: 16px;
+    margin: 16px 0 8px 0;
+    padding-top: 16px;
+    border-top: 2px solid rgba(0,0,0,0.1);
+}
+.settings-section-title:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
 }
 
 /* ===== TOAST ===== */
@@ -984,7 +1011,7 @@ body {
     </aside>
     
     <!-- Sidebar Toggle Button -->
-    <button class="sidebar-toggle sidebar-visible" id="sidebar-toggle">☰</button>
+    <button class="sidebar-toggle" id="sidebar-toggle">✕</button>
     
     <!-- Main Content -->
     <main class="main-content" id="main-content">
@@ -1147,9 +1174,10 @@ body {
 </div>
 
 <div class="modal-overlay" id="settings-modal">
-    <div class="modal">
-        <h3 class="modal-title">⚙ Stage Names</h3>
-        <p class="modal-text">Customize the names for each stage:</p>
+    <div class="modal" style="max-width: 500px;">
+        <h3 class="modal-title">⚙ Settings</h3>
+        
+        <div class="settings-section-title">Stage Names</div>
         <div class="settings-inputs">
             <div class="settings-row">
                 <label>Stage 1:</label>
@@ -1172,6 +1200,31 @@ body {
                 <input type="text" id="setting-stage-4" placeholder="Done">
             </div>
         </div>
+        
+        <div class="settings-section-title">Text Position on Cubes</div>
+        <div class="settings-inputs">
+            <div class="settings-row">
+                <label>Vertical:</label>
+                <input type="range" id="setting-text-top" min="40" max="75" value="58">
+                <span class="range-value" id="setting-text-top-val">58%</span>
+            </div>
+            <div class="settings-row">
+                <label>Horizontal:</label>
+                <input type="range" id="setting-text-left" min="40" max="60" value="52">
+                <span class="range-value" id="setting-text-left-val">52%</span>
+            </div>
+            <div class="settings-row">
+                <label>Angle:</label>
+                <input type="range" id="setting-text-skew" min="-15" max="5" value="-4">
+                <span class="range-value" id="setting-text-skew-val">-4°</span>
+            </div>
+            <div class="settings-row">
+                <label>Size:</label>
+                <input type="range" id="setting-text-size" min="60" max="140" value="90">
+                <span class="range-value" id="setting-text-size-val">90%</span>
+            </div>
+        </div>
+        
         <div class="modal-actions">
             <button class="modal-btn secondary" id="settings-cancel">Cancel</button>
             <button class="modal-btn primary" id="settings-save">Save</button>
@@ -1214,6 +1267,14 @@ const CUBE_STYLES = [
     'box11_yellowblue', 'box12_red', 'box13_darkblue', 'box14_tealpink', 'box15_pinkteal'
 ];
 
+// Default text position settings
+const DEFAULT_TEXT_SETTINGS = {
+    top: 58,
+    left: 52,
+    skew: -4,
+    size: 90
+};
+
 // ===== STATE =====
 let state = {
     user: null,
@@ -1228,11 +1289,21 @@ let state = {
     syncing: false,
     currentFilter: 'all',
     stageNames: [...DEFAULT_STAGE_NAMES],
-    isNewProject: false
+    isNewProject: false,
+    textSettings: {...DEFAULT_TEXT_SETTINGS},
+    sidebarVisible: true
 };
 
 // ===== AUTH FUNCTIONS =====
 let currentAuthMode = 'login';
+
+// Apply text settings to CSS variables
+function applyTextSettings() {
+    document.documentElement.style.setProperty('--text-top', state.textSettings.top + '%');
+    document.documentElement.style.setProperty('--text-left', state.textSettings.left + '%');
+    document.documentElement.style.setProperty('--text-skew', state.textSettings.skew + 'deg');
+    document.documentElement.style.setProperty('--text-size', state.textSettings.size / 100);
+}
 
 function switchAuthTab(mode) {
     currentAuthMode = mode;
@@ -1304,11 +1375,14 @@ async function loadDataFromSupabase() {
             state.projects = data.save_data.projects || [];
             state.vault = data.save_data.vault || [];
             state.stageNames = data.save_data.stageNames || [...DEFAULT_STAGE_NAMES];
+            state.textSettings = data.save_data.textSettings || {...DEFAULT_TEXT_SETTINGS};
         } else {
             state.projects = [];
             state.vault = [];
             state.stageNames = [...DEFAULT_STAGE_NAMES];
+            state.textSettings = {...DEFAULT_TEXT_SETTINGS};
         }
+        applyTextSettings();
         updateStageNames();
         renderGrid();
     } catch (error) {
@@ -1329,7 +1403,8 @@ async function saveDataToSupabase() {
                 save_data: { 
                     projects: state.projects, 
                     vault: state.vault,
-                    stageNames: state.stageNames
+                    stageNames: state.stageNames,
+                    textSettings: state.textSettings
                 },
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
@@ -1964,12 +2039,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const mainContent = document.getElementById('main-content');
         const toggleBtn = document.getElementById('sidebar-toggle');
         
-        sidebar.classList.toggle('hidden');
-        mainContent.classList.toggle('sidebar-hidden');
-        toggleBtn.classList.toggle('sidebar-visible');
+        state.sidebarVisible = !state.sidebarVisible;
+        sidebar.classList.toggle('hidden', !state.sidebarVisible);
+        mainContent.classList.toggle('sidebar-hidden', !state.sidebarVisible);
+        toggleBtn.classList.toggle('sidebar-hidden', !state.sidebarVisible);
         
         // Change icon
-        toggleBtn.textContent = sidebar.classList.contains('hidden') ? '☰' : '✕';
+        toggleBtn.textContent = state.sidebarVisible ? '✕' : '☰';
     };
     
     // New project
@@ -2000,25 +2076,67 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Settings
     document.getElementById('btn-settings').onclick = () => {
         const modal = document.getElementById('settings-modal');
+        
+        // Populate stage names
         STAGES.forEach((stage, i) => {
             document.getElementById('setting-stage-' + i).value = state.stageNames[i];
         });
+        
+        // Populate text settings
+        document.getElementById('setting-text-top').value = state.textSettings.top;
+        document.getElementById('setting-text-top-val').textContent = state.textSettings.top + '%';
+        document.getElementById('setting-text-left').value = state.textSettings.left;
+        document.getElementById('setting-text-left-val').textContent = state.textSettings.left + '%';
+        document.getElementById('setting-text-skew').value = state.textSettings.skew;
+        document.getElementById('setting-text-skew-val').textContent = state.textSettings.skew + '°';
+        document.getElementById('setting-text-size').value = state.textSettings.size;
+        document.getElementById('setting-text-size-val').textContent = state.textSettings.size + '%';
+        
         modal.classList.add('visible');
     };
     
+    // Text position sliders - live preview
+    document.getElementById('setting-text-top').oninput = e => {
+        document.getElementById('setting-text-top-val').textContent = e.target.value + '%';
+        document.documentElement.style.setProperty('--text-top', e.target.value + '%');
+    };
+    document.getElementById('setting-text-left').oninput = e => {
+        document.getElementById('setting-text-left-val').textContent = e.target.value + '%';
+        document.documentElement.style.setProperty('--text-left', e.target.value + '%');
+    };
+    document.getElementById('setting-text-skew').oninput = e => {
+        document.getElementById('setting-text-skew-val').textContent = e.target.value + '°';
+        document.documentElement.style.setProperty('--text-skew', e.target.value + 'deg');
+    };
+    document.getElementById('setting-text-size').oninput = e => {
+        document.getElementById('setting-text-size-val').textContent = e.target.value + '%';
+        document.documentElement.style.setProperty('--text-size', e.target.value / 100);
+    };
+    
     document.getElementById('settings-cancel').onclick = () => {
+        // Restore previous settings
+        applyTextSettings();
         document.getElementById('settings-modal').classList.remove('visible');
     };
     
     document.getElementById('settings-save').onclick = () => {
+        // Save stage names
         STAGES.forEach((stage, i) => {
             const val = document.getElementById('setting-stage-' + i).value.trim();
             state.stageNames[i] = val || DEFAULT_STAGE_NAMES[i];
         });
+        
+        // Save text settings
+        state.textSettings.top = parseInt(document.getElementById('setting-text-top').value);
+        state.textSettings.left = parseInt(document.getElementById('setting-text-left').value);
+        state.textSettings.skew = parseInt(document.getElementById('setting-text-skew').value);
+        state.textSettings.size = parseInt(document.getElementById('setting-text-size').value);
+        
         updateStageNames();
+        applyTextSettings();
         saveDataToSupabase();
         document.getElementById('settings-modal').classList.remove('visible');
-        showToast('Stage names updated');
+        showToast('Settings saved');
     };
     
     // Logout
