@@ -1634,35 +1634,72 @@ async function loadDataFromSupabase() {
 }
 
 let saveTimeout;
+let saveInFlight = false;
+let savePending = false;
 async function saveDataToSupabase() {
-    if (!state.user || state.syncing) return;
+    if (!state.user) return;
+
+    // Never drop a save: if one is already running, mark that we need to run again.
+    if (saveInFlight) {
+        savePending = true;
+        return;
+    }
+
+    saveInFlight = true;
     state.syncing = true;
+
     try {
+        const payload = {
+            user_id: state.user.id,
+            save_data: {
+                projects: state.projects,
+                vault: state.vault,
+                stageNames: state.stageNames,
+                textSettings: state.textSettings
+            },
+            updated_at: new Date().toISOString()
+        };
+
         const { error } = await supabaseClient
             .from('user_saves')
-            .upsert({
-                user_id: state.user.id,
-                save_data: { 
-                    projects: state.projects, 
-                    vault: state.vault,
-                    stageNames: state.stageNames,
-                    textSettings: state.textSettings
-                },
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
+            .upsert(payload, { onConflict: 'user_id' });
+
         if (error) throw error;
+        // Optional: uncomment if you want visible confirmation
+        // showToast('Saved');
     } catch (error) {
         console.error('Save error:', error);
+        // Make failures visible; otherwise it *looks* like it saved when it didn't.
+        if (typeof showToast === 'function') showToast('Save failed — check connection / sign-in');
     } finally {
         state.syncing = false;
+        saveInFlight = false;
+
+        // If changes happened during the save, run once more with the newest state.
+        if (savePending) {
+            savePending = false;
+            // Run immediately (no debounce) so we catch up.
+            saveDataToSupabase();
+        }
     }
+}
+
+function scheduleSave() {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        saveDataToSupabase();
+    }, 500);
+}
+
+function flushSaveNow() {
+    clearTimeout(saveTimeout);
+    scheduleSave();
 }
 
 function saveProject(p) {
     const idx = state.projects.findIndex(proj => proj.id === p.id);
     if (idx >= 0) state.projects[idx] = p;
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(saveDataToSupabase, 500);
+    scheduleSave();
 }
 
 function deleteProjectFromDB(id) {
@@ -1674,7 +1711,7 @@ function saveVaultItem(item) {
     const idx = state.vault.findIndex(v => v.id === item.id);
     if (idx >= 0) state.vault[idx] = item;
     else state.vault.push(item);
-    saveDataToSupabase();
+    scheduleSave();
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -2387,6 +2424,16 @@ function openVaultDetail(item) {
 
 // ===== EVENT LISTENERS =====
 document.addEventListener('DOMContentLoaded', async () => {
+    // Best-effort save flush when the tab is backgrounded/closed (prevents losing last debounced save)
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            flushSaveNow();
+        }
+    });
+    // pagehide is more reliable than beforeunload on mobile / bfcache
+    window.addEventListener('pagehide', () => flushSaveNow());
+    window.addEventListener('beforeunload', () => flushSaveNow());
+
     // Auth form
     document.getElementById('auth-form').addEventListener('submit', async e => {
         e.preventDefault();
